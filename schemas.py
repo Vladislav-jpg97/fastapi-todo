@@ -19,3 +19,4 @@ class TodoUpdate(TodoBase):
 
 class TodoRead(TodoBase):
     id: UUID
+

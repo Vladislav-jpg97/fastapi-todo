@@ -1,6 +1,5 @@
 import uuid
-from datetime import datetime
-from time import timezone
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
@@ -53,16 +52,15 @@ def create_todo(
         new_todo: TodoCreate
 ):
     todo = TodoRead(
-            id=uuid.uuid4(),
-            name=new_todo.name,
-            description=new_todo.description,
-            deadline=new_todo.deadline,
-            completed=new_todo.completed,
-        )
+        id=uuid.uuid4(),
+        name=new_todo.name,
+        description=new_todo.description,
+        deadline=new_todo.deadline,
+        completed=new_todo.completed,
+    )
     TODOS.append(
         todo
     )
-
 
     return todo
 
@@ -145,3 +143,19 @@ def list_todos(
         todos = list(filter(lambda todo: todo.deadline <= deadline_end, todos))
 
     return todos
+
+
+# эндпоинт делает определенную todo выполненым
+
+@app.patch("/todos/{todo_id}/complete",response_model=TodoRead)
+def complete_todo(todo_id: UUID):
+    for todo in TODOS:
+        if todo.id == todo_id:
+            todo.completed = True
+            return todo
+    raise HTTPException(
+        status_code=404,
+        detail={
+            "message": "Todo Not Found"
+        }
+    )
