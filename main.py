@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
-from schemas import TodoCreate, TodoUpdate, TodoRead
+from schemas import TodoCreate, TodoUpdate, TodoRead, TodoModify
 
 app = FastAPI()
 
@@ -147,12 +147,44 @@ def list_todos(
 
 # эндпоинт делает определенную todo выполненым
 
-@app.patch("/todos/{todo_id}/complete",response_model=TodoRead)
+@app.patch("/todos/{todo_id}/complete", response_model=TodoRead)
 def complete_todo(todo_id: UUID):
     for todo in TODOS:
         if todo.id == todo_id:
             todo.completed = True
             return todo
+    raise HTTPException(
+        status_code=404,
+        detail={
+            "message": "Todo Not Found"
+        }
+    )
+
+
+@app.patch("/todos/{todo_id}",
+           status_code=200,
+           summary="Для частичного обновления ",
+           response_model=TodoRead
+           )
+def modify_todo(
+        todo_id: UUID,
+        patch_data : TodoModify
+):
+    for index, todo in enumerate(TODOS):
+        if todo.id == todo_id:
+            new_name = patch_data.name if patch_data.name is not None else todo.name
+            new_description = patch_data.description if patch_data.description is not None else todo.description
+            new_completed = patch_data.completed if patch_data.completed is not None else todo.completed
+            new_deadline = patch_data.deadline if patch_data.deadline is not None else todo.deadline
+
+            TODOS[index] = TodoRead(
+                id=todo.id,
+                name=new_name,
+                description=new_description,
+                completed=new_completed,
+                deadline=new_deadline
+            )
+            return TODOS[index]
     raise HTTPException(
         status_code=404,
         detail={

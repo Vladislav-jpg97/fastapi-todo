@@ -20,3 +20,8 @@ class TodoUpdate(TodoBase):
 class TodoRead(TodoBase):
     id: UUID
 
+class TodoModify(BaseModel):
+    name: str | None = Field(default=None, min_length=3, max_length=255)
+    description: str | None = Field(default=None, max_length=1024)
+    completed: bool | None = None
+    deadline: datetime | None = None
