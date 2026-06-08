@@ -1,4 +1,4 @@
-import uuid
+
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -6,6 +6,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
+from crud import create_todo_db, get_todo_by_id_db, update_todo_db, delete_todo_db, list_todo_db, complete_todo_db, \
+    modify_todo_db
+from database import engine
+from models import Base
 from schemas import TodoCreate, TodoUpdate, TodoRead, TodoModify
 
 app = FastAPI()
@@ -51,16 +55,17 @@ def update_item(item_id: int, item: Item, q: str | None = None):
 def create_todo(
         new_todo: TodoCreate
 ):
-    todo = TodoRead(
-        id=uuid.uuid4(),
-        name=new_todo.name,
-        description=new_todo.description,
-        deadline=new_todo.deadline,
-        completed=new_todo.completed,
-    )
-    TODOS.append(
-        todo
-    )
+    # todo = TodoRead(
+    #     id=uuid.uuid4(),
+    #     name=new_todo.name,
+    #     description=new_todo.description,
+    #     deadline=new_todo.deadline,
+    #     completed=new_todo.completed,
+    # )
+    # TODOS.append(
+    #     todo
+    # )
+    todo = create_todo_db(new_todo)
 
     return todo
 
@@ -71,19 +76,23 @@ def create_todo(
     status_code=204
 )
 def update_todo(
-        todo_id: UUID,
+        todo_id: int,
         updated_todo: TodoUpdate
 ):
-    for index, todo in enumerate(TODOS):
-        if todo.id == todo_id:
-            TODOS[index] = TodoRead(
-                id=todo.id,
-                name=updated_todo.name,
-                description=updated_todo.description,
-                deadline=updated_todo.deadline,
-                completed=updated_todo.completed,
-            )
-            return None
+    # for index, todo in enumerate(TODOS):
+    #     if todo.id == todo_id:
+    #         TODOS[index] = TodoRead(
+    #             id=todo.id,
+    #             title=updated_todo.title,
+    #             description=updated_todo.description,
+    #             deadline=updated_todo.deadline,
+    #             completed=updated_todo.completed,
+    #         )
+    #         return None
+    todo = get_todo_by_id_db(todo_id)
+    if todo:
+        update_todo_db(todo,updated_todo)
+        return None
     return JSONResponse(
         status_code=404,
         content={
@@ -93,30 +102,38 @@ def update_todo(
 
 
 @app.delete("/todos/{todo_id}")
-def delete_item(todo_id: UUID):
-    for index, todo in enumerate(TODOS):
-        if todo.id == todo_id:
-            TODOS.pop(index)
-            return None
-    return JSONResponse(
-        status_code=404,
-        content={
-            "message": "Todo Not Found"
-        }
-    )
-
-
-@app.get("/todos/{todo_id}")
-def read_item(todo_id: UUID):
-    for index, todo in enumerate(TODOS):
-        if todo.id == todo_id:
-            return todo
+def delete_item(todo_id: int):
+    todo = get_todo_by_id_db(todo_id)
+    if todo:
+        delete_todo_db(todo)
     raise HTTPException(
         status_code=404,
         detail={
             "message": "Todo Not Found"
         }
     )
+
+
+@app.get("/todos/{todo_id}")
+def read_todo(todo_id: int):
+    # for index, todo in enumerate(TODOS):
+    #     if todo.id == todo_id:
+    #         return todo
+    # raise HTTPException(
+    #     status_code=404,
+    #     detail={
+    #         "message": "Todo Not Found"
+    #     }
+    # )
+    todo = get_todo_by_id_db(todo_id)
+    if todo:
+        return todo
+    raise HTTPException(
+        status_code=404,
+            detail={
+                "message": "Todo Not Found"
+            }
+        )
 
 
 @app.get("/todos")
@@ -128,36 +145,46 @@ def list_todos(
 ):
     todos = TODOS
 
-    if q is not None:
-        todos = list(filter(lambda todo: q in todo.name, todos))
+    # if q is not None:
+    #     todos = list(filter(lambda todo: q in todo.name, todos))
+    #
+    # if is_completed is not None:
+    #     todos = list(filter(lambda todo: todo.completed == is_completed, todos))
+    #
+    # if deadline_start is not None:
+    #     deadline_start = deadline_start.replace(tzinfo=timezone.utc)
+    #     todos = list(filter(lambda todo: todo.deadline >= deadline_start, todos))
+    #
+    # if deadline_end is not None:
+    #     deadline_end = deadline_end.replace(tzinfo=timezone.utc)
+    #     todos = list(filter(lambda todo: todo.deadline <= deadline_end, todos))
+    #
+    # return todos
 
-    if is_completed is not None:
-        todos = list(filter(lambda todo: todo.completed == is_completed, todos))
-
-    if deadline_start is not None:
-        deadline_start = deadline_start.replace(tzinfo=timezone.utc)
-        todos = list(filter(lambda todo: todo.deadline >= deadline_start, todos))
-
-    if deadline_end is not None:
-        deadline_end = deadline_end.replace(tzinfo=timezone.utc)
-        todos = list(filter(lambda todo: todo.deadline <= deadline_end, todos))
-
+    todos = list_todo_db(
+        q=q,
+        is_completed=is_completed,
+        deadline_start=deadline_start,
+        deadline_end=deadline_end
+    )
     return todos
 
 
 # эндпоинт делает определенную todo выполненым
 
 @app.patch("/todos/{todo_id}/complete", response_model=TodoRead)
-def complete_todo(todo_id: UUID):
-    for todo in TODOS:
-        if todo.id == todo_id:
-            todo.completed = True
-            return todo
+def complete_todo(todo_id: int):
+    # for todo in TODOS:
+    #     if todo.id == todo_id:
+    #         todo.completed = True
+    #         return todo
+    todo = get_todo_by_id_db(todo_id)
+    if todo:
+        updated_todo = complete_todo_db(todo)
+        return updated_todo
     raise HTTPException(
         status_code=404,
-        detail={
-            "message": "Todo Not Found"
-        }
+        detail={"message": "Todo Not Found"}
     )
 
 
@@ -167,27 +194,41 @@ def complete_todo(todo_id: UUID):
            response_model=TodoRead
            )
 def modify_todo(
-        todo_id: UUID,
+        todo_id: int,
         patch_data : TodoModify
 ):
-    for index, todo in enumerate(TODOS):
-        if todo.id == todo_id:
-            new_name = patch_data.name if patch_data.name is not None else todo.name
-            new_description = patch_data.description if patch_data.description is not None else todo.description
-            new_completed = patch_data.completed if patch_data.completed is not None else todo.completed
-            new_deadline = patch_data.deadline if patch_data.deadline is not None else todo.deadline
+    todo = get_todo_by_id_db(todo_id)
+    if todo:
+        updated_todo = modify_todo_db(todo, patch_data)
+        return updated_todo
 
-            TODOS[index] = TodoRead(
-                id=todo.id,
-                name=new_name,
-                description=new_description,
-                completed=new_completed,
-                deadline=new_deadline
-            )
-            return TODOS[index]
+
+
+    # for index, todo in enumerate(TODOS):
+    #     if todo.id == todo_id:
+    #         new_name = patch_data.title if patch_data.title is not None else todo.title
+    #         new_description = patch_data.description if patch_data.description is not None else todo.description
+    #         new_completed = patch_data.completed if patch_data.completed is not None else todo.completed
+    #         new_deadline = patch_data.deadline if patch_data.deadline is not None else todo.deadline
+    #
+    #         TODOS[index] = TodoRead(
+    #             id=todo.id,
+    #             title=new_name,
+    #             description=new_description,
+    #             completed=new_completed,
+    #             deadline=new_deadline
+    #         )
+    #         return TODOS[index]
     raise HTTPException(
         status_code=404,
         detail={
             "message": "Todo Not Found"
         }
+    )
+
+
+
+if __name__ == "__main__":
+    Base.metadata.create_all(
+        bind = engine
     )

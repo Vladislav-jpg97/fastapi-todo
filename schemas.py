@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class TodoBase(BaseModel):
-    name: str = Field(min_length=3, max_length=255)
+    title: str = Field(min_length=3, max_length=255)
     description: str | None = Field(max_length=1024)
     completed: bool = Field(default=False)
     deadline: datetime
@@ -18,10 +18,10 @@ class TodoUpdate(TodoBase):
     pass
 
 class TodoRead(TodoBase):
-    id: UUID
+    id: int
 
 class TodoModify(BaseModel):
-    name: str | None = Field(default=None, min_length=3, max_length=255)
+    title: str | None = Field(default=None, min_length=3, max_length=255)
     description: str | None = Field(default=None, max_length=1024)
     completed: bool | None = None
     deadline: datetime | None = None
